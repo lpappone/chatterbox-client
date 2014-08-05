@@ -12,14 +12,26 @@ var app = {};
 app.username = document.URL.split('=').pop();
 app.server = 'https://api.parse.com/1/classes/chatterbox';
 app.friends = [];
-
+app.rooms = [];
 
 app.init = function() {
   app.fetch();
+  app.displayRooms();
 
   $('#send').submit(function(event) {
       app.handleSubmit();
       event.preventDefault();
+  });
+
+  $('#room').submit(function(event) {
+
+      app.addRoom( $('#newRoom').val() );
+      event.preventDefault();
+  });
+
+  $('#refresh').on('click', function(event) {
+      app.clearMessages();
+      app.fetch();
   });
 
   // must use $(document).on('click', 'username') instead of $('.username').on('click')
@@ -54,7 +66,8 @@ app.send = function(message){
     data:  JSON.stringify(message),
     contentType: 'application/json',
     success: function(data) {
-      // app.processData();
+      app.clearMessages();
+      app.fetch();
     },
     error: function(data) {
       console.log('chatterbox: did not post message');
@@ -102,10 +115,20 @@ app.timeConvert = function(time) {
 
 // add room
 app.addRoom = function(room) {
+  app.rooms.push(room);
 
   var $room  = $('<span class ="room">' + room + '</span>');
   $('#roomSelect').append($room);
 }
+
+app.displayRooms = function(){
+  if(app.rooms.length > 0){
+    for(var i =0; i < app.rooms.length; i++){
+    var $room  = $('<span class ="room">' + app.rooms[i] + '</span>');
+    $('#roomSelect').append($room);
+    }
+  }
+};
 
 // display the processed messages
 app.addMessage = function(message) {
@@ -125,6 +148,10 @@ app.addMessage = function(message) {
     var $warning = $('<span class="warning">' + "This message may have been altered to prevent an attempted attack." + '</span>');
     $container.append($warning);
   }
+
+  if(app.friends.indexOf(cleanMessage.username) >= 0) {
+    $container.addClass('friend');
+  }
   $('#chats').append($container);
 
 }
@@ -138,7 +165,6 @@ app.addFriend = function(friend) {
   console.log(friend)
 }
 
-// add message. use ajax to send message to parse.
 
 // XSS cleaner to check outgoing and incoming message
 app.XSSCleaner = function(message) {

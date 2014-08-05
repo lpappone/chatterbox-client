@@ -11,54 +11,56 @@ var app = {};
 
 app.username = document.URL.split('=').pop();
 app.server = 'https://api.parse.com/1/classes/chatterbox';
+app.friends = [];
 
 
 app.init = function() {
   app.fetch();
 
-  $('#submit').on('click', function() {
-      app.retrieveMessage();
+  $('#send').submit(function(event) {
+      app.handleSubmit();
+      event.preventDefault();
   });
 
+  // must use $(document).on('click', 'username') instead of $('.username').on('click')
+  // because fetch has not yet retrieved the list of messages by the time
+  // $('.username').on('click') is run. Meaning, there is nothing to attach the
+  // on click event to.
+  // $(document).on('click') attaches the listeners when document is done loading.
+  $(document).on('click', '.username', function() {
+    var friend = $(this).text();
+    app.addFriend(friend);
+  })
 };
 
-
-
 // retrieve message that user entered
-app.retrieveMessage = function() {
+app.handleSubmit = function() {
   console.log('retrieving')
   var userMessage = {};
   //use jQuery to get stuff in the input box
   userMessage.username = app.username;
-  userMessage.text = $('#userInput').text();
+  userMessage.text = $('#message').val();
   userMessage.roomname = null;
-  //var cleanInput = app.XSSCleaner(userMessage);
-  //delete cleanInput.warning;
-  console.log(userMessage);
+  var cleanInput = app.XSSCleaner(userMessage);
+  delete cleanInput.warning;
   app.send(userMessage);
 }
 
-
-
 // send message to Parse
 app.send = function(message){
-  console.log('sending')
-  //var message = app.retrieveMessage();
   $.ajax({
     url: app.server,
     type: 'POST',
     data:  JSON.stringify(message),
     contentType: 'application/json',
     success: function(data) {
-      console.log('chatterbox: post message');
+      // app.processData();
     },
     error: function(data) {
       console.log('chatterbox: did not post message');
     }
   });
-
 }
-
 
 app.fetch = function() {
   $.ajax({
@@ -66,6 +68,9 @@ app.fetch = function() {
     type: 'GET',
     contentType: 'application/json',
     dataType: 'JSON',
+    data: {
+      order: '-createdAt'
+    },
     success: function(data) {
       console.log(data);
       console.log('chatterbox: got message');
@@ -87,7 +92,7 @@ app.processData = function(data) {
     messageObj.username = data.results[i].username;
     messageObj.message = data.results[i].text;
 
-    app.displayMessage(messageObj);
+    app.addMessage(messageObj);
   }
 };
 
@@ -95,15 +100,21 @@ app.timeConvert = function(time) {
   return time;
 };
 
+// add room
+app.addRoom = function(room) {
+
+  var $room  = $('<span class ="room">' + room + '</span>');
+  $('#roomSelect').append($room);
+}
 
 // display the processed messages
-app.displayMessage = function(message) {
+app.addMessage = function(message) {
     console.log('display');
 
   var cleanMessage = app.XSSCleaner(message);
 
   //if message.warning is true, do something...
-  var $username = $('<span class="username">' + cleanMessage.username + '</span>');
+  var $username = $('<a href="#" class="username">' + cleanMessage.username + '</a>');
   var $text = $('<p class="text">' + cleanMessage.message + '</p>');
   var $date = $('<span class="date">' + cleanMessage.timeCreated + '</span>');
   var $container = $('<li></li>');
@@ -114,10 +125,18 @@ app.displayMessage = function(message) {
     var $warning = $('<span class="warning">' + "This message may have been altered to prevent an attempted attack." + '</span>');
     $container.append($warning);
   }
-  $('#messages').append($container);
+  $('#chats').append($container);
 
 }
 
+app.clearMessages = function() {
+  $('#chats').children().remove();
+};
+
+app.addFriend = function(friend) {
+  app.friends.push(friend);
+  console.log(friend)
+}
 
 // add message. use ajax to send message to parse.
 

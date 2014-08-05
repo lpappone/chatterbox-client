@@ -13,6 +13,8 @@ app.username = document.URL.split('=').pop();
 app.server = 'https://api.parse.com/1/classes/chatterbox';
 app.friends = [];
 app.rooms = [];
+app.currentRoom;
+
 
 app.init = function() {
   app.fetch();
@@ -34,6 +36,19 @@ app.init = function() {
       app.fetch();
   });
 
+  $(document).on('click', '.room', function() {
+      var roomName = $(this).text()
+      app.currentRoom = roomName;
+      app.clearMessages();
+      app.fetch();
+  });
+
+  $('.leaveRoom').on('click', function(event) {
+      app.currentRoom = null;
+      app.clearMessages();
+      app.fetch();
+  });
+
   // must use $(document).on('click', 'username') instead of $('.username').on('click')
   // because fetch has not yet retrieved the list of messages by the time
   // $('.username').on('click') is run. Meaning, there is nothing to attach the
@@ -45,17 +60,18 @@ app.init = function() {
   })
 };
 
-// retrieve message that user entered
+// send message that user entered
 app.handleSubmit = function() {
   console.log('retrieving')
   var userMessage = {};
   //use jQuery to get stuff in the input box
   userMessage.username = app.username;
   userMessage.text = $('#message').val();
-  userMessage.roomname = null;
+  userMessage.roomname = app.currentRoom;
   var cleanInput = app.XSSCleaner(userMessage);
   delete cleanInput.warning;
   app.send(userMessage);
+  console.log(userMessage);
 }
 
 // send message to Parse
@@ -85,7 +101,7 @@ app.fetch = function() {
       order: '-createdAt'
     },
     success: function(data) {
-      console.log(data);
+      console.log(data, "data");
       console.log('chatterbox: got message');
       app.processData(data);
     },
@@ -95,14 +111,68 @@ app.fetch = function() {
   });
 }
 
+//filter message for one room
+// app.filterMessagesByRoom = function(room){
+//   app.fetch();
+//   _.filter(data.results, function() {
+//     return data.results[i].roomname === app.currentRoom;
+//   });
+
+//   for (var i = 0; i < data.results.length; i++) {
+//     var messageObj = {};
+
+//     messageObj.timeCreated = app.timeConvert(data.results[i].createdAt);
+//     messageObj.username = data.results[i].username;
+//     messageObj.roomname = data.results[i].roomname;
+//     messageObj.message = data.results[i].text;
+
+//     app.addMessage(messageObj);
+//   }
+
+// }
+
+// // fetch messages for one room
+// app.fetchMessagesByRoom = function(room){
+//   console.log('fetch room')
+//   $.ajax({
+//     url: app.server,
+
+//     type: 'GET',
+//     contentType: 'application/json',
+//     dataType: 'JSON',
+//     data: {
+//       order: '-createdAt',
+//       roomname: room,
+//     },
+//     success: function(data) {
+//       console.log(data, 'room data');
+//       console.log('chatterbox: got message');
+//       app.processData(data);
+//     },
+//     error: function(data) {
+//       console.log('chatterbox: did not get message');
+//     }
+//   });
+// }
+
+
 // process the raw data from parse
 app.processData = function(data) {
+  if (app.currentRoom) {
+    var newArr = _.filter(data.results, function(item) {
+    return item.roomname === app.currentRoom;
+    });
+    console.log(newArr, 'filtering newArr')
+  } else {
+    var newArr = data.results;
+  }
 
-  for (var i = 0; i < data.results.length; i++) {
+  for (var i = 0; i < newArr.length; i++) {
 
     var messageObj = {};
     messageObj.timeCreated = app.timeConvert(data.results[i].createdAt);
     messageObj.username = data.results[i].username;
+    messageObj.roomname = data.results[i].roomname;
     messageObj.message = data.results[i].text;
 
     app.addMessage(messageObj);
@@ -115,20 +185,21 @@ app.timeConvert = function(time) {
 
 // add room
 app.addRoom = function(room) {
-  app.rooms.push(room);
-
-  var $room  = $('<span class ="room">' + room + '</span>');
+  app.rooms.push(room)
+  var $room  = $('<p><a href="#" class ="room">' + room + '</a></p>');
   $('#roomSelect').append($room);
 }
 
 app.displayRooms = function(){
   if(app.rooms.length > 0){
     for(var i =0; i < app.rooms.length; i++){
-    var $room  = $('<span class ="room">' + app.rooms[i] + '</span>');
+  var $room  = $('<p><a href="#" class ="room">' + room + '</a></p>');
     $('#roomSelect').append($room);
     }
   }
 };
+
+
 
 // display the processed messages
 app.addMessage = function(message) {
@@ -140,7 +211,8 @@ app.addMessage = function(message) {
   var $username = $('<a href="#" class="username">' + cleanMessage.username + '</a>');
   var $text = $('<p class="text">' + cleanMessage.message + '</p>');
   var $date = $('<span class="date">' + cleanMessage.timeCreated + '</span>');
-  var $container = $('<li></li>');
+
+  var $container = $('<li class="'+cleanMessage.roomname+'"></li>');
   $container.append($username);
   $container.append($text);
   $container.append($date);
